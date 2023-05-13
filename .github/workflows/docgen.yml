@@ -1,0 +1,30 @@
+name: DocGen
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # To push a branch 
+      pull-requests: write  # To create a PR from that branch
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Generate docs
+      run: |
+        cargo doc
+        git worktree add docs
+        git config user.name "Deploy from CI"
+        git config user.email ""
+        cd docs
+        # Delete the ref to avoid keeping history.
+        git update-ref -d refs/heads/docs
+        rm -rf *
+        mv ../target/doc/* .
+        git add .
+        git commit -m "Deploy $GITHUB_SHA to docs"
+        git push --force --set-upstream origin docs
