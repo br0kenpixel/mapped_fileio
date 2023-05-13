@@ -2,6 +2,8 @@
 
 This library allows reading files by using [`mmap()`](https://en.wikipedia.org/wiki/Mmap) under the hood.
 
+Documentation is hosted [here](https://br0kenpixel.github.io/mapped_fileio/mapped_fileio/struct.MappedFile.html).
+
 ### What is [`mmap()`](https://en.wikipedia.org/wiki/Mmap)?
 `mmap()` is a POSIX-compliant system call, which allows mapping mapping files and devices into (virtual) memory.
 
