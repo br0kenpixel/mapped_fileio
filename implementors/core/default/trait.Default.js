@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"nix":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.69.0/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"nix/sys/statvfs/struct.FsFlags.html\" title=\"struct nix::sys::statvfs::FsFlags\">FsFlags</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
