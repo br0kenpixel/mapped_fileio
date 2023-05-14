@@ -14,6 +14,7 @@ use std::{
     path::Path,
 };
 
+/// A memory mapped file. Similar to [`File`](std::fs::File).
 #[derive(Debug)]
 pub struct MappedFile {
     fd: i32,
@@ -24,6 +25,8 @@ pub struct MappedFile {
 }
 
 impl MappedFile {
+    /// Opens a file mapping it into memory.
+    /// Similar to [`File::open()`](std::fs::File::open).
     pub fn open<P: AsRef<Path>>(path: P, mode: OpenOptions) -> Result<Self> {
         let path = path.as_ref();
 

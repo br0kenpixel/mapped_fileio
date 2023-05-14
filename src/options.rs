@@ -6,9 +6,16 @@ use nix::{
     },
 };
 
+/// Options and flags which can be used to configure how a file is opened. Similar to [`OpenOptions`](std::fs::OpenOptions).  
+/// Unlike [`OpenOptions`](std::fs::OpenOptions), this variant does not have a write-only mode. You can either choose Read-Only
+/// or Read/Write.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpenOptions {
+    /// This option indicates that the file should be read-only if opened.
     ReadOnly,
+    /// This option indicates that the file should be readable and writable if opened.  
+    /// __Unlike [`OpenOptions::write()`](std::fs::OpenOptions::write) this will not
+    /// create a file if it does not exist!__
     ReadWrite,
 }
 
