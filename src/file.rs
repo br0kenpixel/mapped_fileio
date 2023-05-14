@@ -105,6 +105,20 @@ impl Seek for MappedFile {
     }
 }
 
+impl Iterator for MappedFile {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos == self.size {
+            return None;
+        }
+
+        let c = unsafe { self.mem.offset(self.pos as isize).read() };
+        self.pos += 1;
+        Some(c)
+    }
+}
+
 impl Drop for MappedFile {
     fn drop(&mut self) {
         self.flush().unwrap();

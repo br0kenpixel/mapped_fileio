@@ -20,6 +20,7 @@ It also implements the following traits:
 - [`Seek`](https://doc.rust-lang.org/std/io/trait.Seek.html)
 - [`Drop`](https://doc.rust-lang.org/std/ops/trait.Drop.html)
 - [`Debug`](https://doc.rust-lang.org/std/fmt/trait.Debug.html)
+- [`Iterator`](https://doc.rust-lang.org/std/iter/trait.Iterator.html)
 
 ### Dependencies
 - [`nix`](https://crates.io/crates/nix)
