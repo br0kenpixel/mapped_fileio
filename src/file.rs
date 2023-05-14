@@ -1,14 +1,15 @@
+use crate::OpenOptions;
 use nix::{
-    fcntl::{open, OFlag},
+    fcntl::open,
     sys::{
-        mman::{mmap, munmap, MapFlags, ProtFlags},
-        stat::{fstat, Mode},
+        mman::{mmap, munmap},
+        stat::fstat,
     },
-    unistd::close,
+    unistd::{close, fsync},
 };
 use std::{
     ffi::c_void,
-    io::{Error, ErrorKind, Read, Result, Seek, SeekFrom},
+    io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Write},
     num::NonZeroUsize,
     path::Path,
 };
@@ -19,37 +20,32 @@ pub struct MappedFile {
     mem: *mut u8,
     pos: usize,
     size: usize,
+    mode: OpenOptions,
 }
 
 impl MappedFile {
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn open<P: AsRef<Path>>(path: P, mode: OpenOptions) -> Result<Self> {
         let path = path.as_ref();
 
-        let fd = open(
-            path.to_str().unwrap(),
-            OFlag::O_RDONLY,
-            Mode::S_IRUSR | Mode::S_IWUSR,
-        )?;
+        let fd = open(path.to_str().unwrap(), mode.into(), mode.into())?;
         let stat = fstat(fd)?;
-        let file_size = unsafe { NonZeroUsize::new_unchecked(stat.st_size as usize) };
+        let file_size;
+        let mem;
 
-        let mem = (unsafe {
-            mmap(
-                None,
-                file_size,
-                ProtFlags::PROT_READ,
-                MapFlags::MAP_PRIVATE,
-                fd,
-                0,
-            )
-        }?)
-        .cast::<u8>();
+        unsafe {
+            file_size = NonZeroUsize::new(stat.st_size as usize)
+                .ok_or_else(|| Error::new(ErrorKind::Unsupported, "cannot open empty file"))?;
+            mem = mmap(None, file_size, mode.into(), mode.into(), fd, 0)?;
+        }
+
+        let mem = mem.cast::<u8>();
 
         Ok(Self {
             fd,
             mem,
             pos: 0,
             size: stat.st_size as usize,
+            mode,
         })
     }
 }
@@ -66,8 +62,12 @@ impl Read for MappedFile {
     }
 }
 
-/* impl Write for MappedFile {
+impl Write for MappedFile {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        if self.mode != OpenOptions::ReadWrite {
+            return Err(Error::new(ErrorKind::Unsupported, "write not enabled"));
+        }
+
         if self.pos + buf.len() > self.size {
             return Err(Error::new(ErrorKind::OutOfMemory, "no space left"));
         }
@@ -82,7 +82,7 @@ impl Read for MappedFile {
     fn flush(&mut self) -> Result<()> {
         fsync(self.fd).map_err(|err| Error::new(ErrorKind::Other, err.desc()))
     }
-} */
+}
 
 impl Seek for MappedFile {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {

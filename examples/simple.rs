@@ -1,11 +1,11 @@
-use mapped_fileio::MappedFile;
+use mapped_fileio::{MappedFile, OpenOptions};
 use std::{fs, io::Read};
 
 fn main() {
     fs::write("text.txt", "Hello, World!").unwrap();
 
     {
-        let mut file = MappedFile::open("text.txt").unwrap();
+        let mut file = MappedFile::open("text.txt", OpenOptions::ReadOnly).unwrap();
         let mut buf = Vec::new();
 
         file.read_to_end(&mut buf).unwrap();
