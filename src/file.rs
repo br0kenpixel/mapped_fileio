@@ -2,7 +2,7 @@ use crate::OpenOptions;
 use nix::{
     fcntl::open,
     sys::{
-        mman::{mmap, munmap},
+        mman::{mmap, msync, munmap, MsFlags},
         stat::fstat,
     },
     unistd::{close, fsync},
@@ -83,6 +83,7 @@ impl Write for MappedFile {
     }
 
     fn flush(&mut self) -> Result<()> {
+        unsafe { msync(self.mem.cast::<c_void>(), self.size, MsFlags::MS_SYNC) }?;
         fsync(self.fd).map_err(|err| Error::new(ErrorKind::Other, err.desc()))
     }
 }
@@ -106,6 +107,7 @@ impl Seek for MappedFile {
 
 impl Drop for MappedFile {
     fn drop(&mut self) {
+        self.flush().unwrap();
         unsafe { munmap(self.mem.cast::<c_void>(), self.size).unwrap() };
         close(self.fd).unwrap();
     }
