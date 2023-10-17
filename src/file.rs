@@ -48,6 +48,22 @@ impl<'f> Read for MappedFile<'f> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.mem.as_ref().read(buf)
     }
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
+        self.mem.as_ref().read_exact(buf)
+    }
+
+    fn read_to_string(&mut self, buf: &mut String) -> Result<usize> {
+        self.mem.as_ref().read_to_string(buf)
+    }
+
+    fn read_vectored(&mut self, bufs: &mut [std::io::IoSliceMut<'_>]) -> Result<usize> {
+        self.mem.as_ref().read_vectored(bufs)
+    }
+
+    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> Result<usize> {
+        self.mem.as_ref().read_to_end(buf)
+    }
 }
 
 impl<'f> Write for MappedFile<'f> {
@@ -58,6 +74,8 @@ impl<'f> Write for MappedFile<'f> {
 
         self.mem.write(buf)
     }
+
+    //TODO: Implement other write_* methods
 
     fn flush(&mut self) -> Result<()> {
         self.mem.flush()
