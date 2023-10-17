@@ -2,127 +2,72 @@ use crate::OpenOptions;
 use nix::{
     fcntl::open,
     sys::{
-        mman::{mmap, msync, munmap, MsFlags},
+        mman::{mmap, munmap},
         stat::fstat,
     },
-    unistd::{close, fsync},
+    unistd::close,
 };
 use std::{
     ffi::c_void,
-    io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Write},
+    io::{Error, ErrorKind, Read, Result, Write},
     num::NonZeroUsize,
     path::Path,
+    slice::from_raw_parts_mut,
 };
 
 /// A memory mapped file. Similar to [`File`](std::fs::File).
 #[derive(Debug)]
-pub struct MappedFile {
+pub struct MappedFile<'f> {
     fd: i32,
-    mem: *mut u8,
-    pos: usize,
-    size: usize,
+    mem: &'f mut [u8],
     mode: OpenOptions,
 }
 
-impl MappedFile {
+impl<'f> MappedFile<'f> {
     /// Opens a file mapping it into memory.
     /// Similar to [`File::open()`](std::fs::File::open).
     pub fn open<P: AsRef<Path>>(path: P, mode: OpenOptions) -> Result<Self> {
         let path = path.as_ref();
 
-        let fd = open(path.to_str().unwrap(), mode.into(), mode.into())?;
-        let stat = fstat(fd)?;
-        let file_size;
-        let mem;
+        let fd = open(path.to_string_lossy().as_ref(), mode.into(), mode.into())?;
+        let file_size = NonZeroUsize::new(fstat(fd)?.st_size as usize)
+            .ok_or_else(|| Error::new(ErrorKind::Unsupported, "cannot open empty file"))?;
 
-        unsafe {
-            file_size = NonZeroUsize::new(stat.st_size as usize)
-                .ok_or_else(|| Error::new(ErrorKind::Unsupported, "cannot open empty file"))?;
-            mem = mmap(None, file_size, mode.into(), mode.into(), fd, 0)?;
-        }
-
-        let mem = mem.cast::<u8>();
+        let mem = unsafe { mmap(None, file_size, mode.into(), mode.into(), fd, 0) }?;
+        let slice = unsafe { from_raw_parts_mut(mem.cast::<u8>(), file_size.get()) };
 
         Ok(Self {
             fd,
-            mem,
-            pos: 0,
-            size: stat.st_size as usize,
+            mem: slice,
             mode,
         })
     }
 }
 
-impl Read for MappedFile {
+impl<'f> Read for MappedFile<'f> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let start = unsafe { self.mem.offset(self.pos as isize) };
-        let read = buf.len().clamp(0, self.size - self.pos);
-
-        unsafe { start.copy_to_nonoverlapping(buf.as_mut_ptr(), read) };
-        self.pos += read;
-
-        Ok(read)
+        self.mem.as_ref().read(buf)
     }
 }
 
-impl Write for MappedFile {
+impl<'f> Write for MappedFile<'f> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         if self.mode != OpenOptions::ReadWrite {
             return Err(Error::new(ErrorKind::Unsupported, "write not enabled"));
         }
 
-        if self.pos + buf.len() > self.size {
-            return Err(Error::new(ErrorKind::OutOfMemory, "no space left"));
-        }
-
-        let start = unsafe { self.mem.offset(self.pos as isize) };
-        unsafe { start.copy_from_nonoverlapping(buf.as_ptr(), buf.len()) }
-
-        self.pos += buf.len();
-        Ok(buf.len())
+        self.mem.write(buf)
     }
 
     fn flush(&mut self) -> Result<()> {
-        unsafe { msync(self.mem.cast::<c_void>(), self.size, MsFlags::MS_SYNC) }?;
-        fsync(self.fd).map_err(|err| Error::new(ErrorKind::Other, err.desc()))
+        self.mem.flush()
     }
 }
 
-impl Seek for MappedFile {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
-        let new_pos = match pos {
-            SeekFrom::Current(offset) => self.pos + offset as usize,
-            SeekFrom::Start(offset) => offset as usize,
-            SeekFrom::End(offset) => self.size - offset as usize,
-        };
-
-        if !(0..self.size).contains(&new_pos) {
-            return Err(Error::new(ErrorKind::Unsupported, "seek beyond limits"));
-        }
-
-        self.pos = new_pos;
-        Ok(new_pos as u64)
-    }
-}
-
-impl Iterator for MappedFile {
-    type Item = u8;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.pos == self.size {
-            return None;
-        }
-
-        let c = unsafe { self.mem.offset(self.pos as isize).read() };
-        self.pos += 1;
-        Some(c)
-    }
-}
-
-impl Drop for MappedFile {
+impl<'f> Drop for MappedFile<'f> {
     fn drop(&mut self) {
         self.flush().unwrap();
-        unsafe { munmap(self.mem.cast::<c_void>(), self.size).unwrap() };
+        unsafe { munmap(self.mem.as_mut_ptr().cast::<c_void>(), self.mem.len()).unwrap() };
         close(self.fd).unwrap();
     }
 }

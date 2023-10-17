@@ -22,23 +22,23 @@ pub enum OpenOptions {
 impl From<OpenOptions> for OFlag {
     fn from(value: OpenOptions) -> Self {
         match value {
-            OpenOptions::ReadOnly => OFlag::O_RDONLY,
-            OpenOptions::ReadWrite => OFlag::O_RDWR,
+            OpenOptions::ReadOnly => Self::O_RDONLY,
+            OpenOptions::ReadWrite => Self::O_RDWR,
         }
     }
 }
 
 impl From<OpenOptions> for Mode {
     fn from(_: OpenOptions) -> Self {
-        Mode::S_IRUSR | Mode::S_IWUSR
+        Self::S_IRUSR | Self::S_IWUSR
     }
 }
 
 impl From<OpenOptions> for ProtFlags {
     fn from(value: OpenOptions) -> Self {
         match value {
-            OpenOptions::ReadOnly => ProtFlags::PROT_READ,
-            OpenOptions::ReadWrite => ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+            OpenOptions::ReadOnly => Self::PROT_READ,
+            OpenOptions::ReadWrite => Self::PROT_READ | Self::PROT_WRITE,
         }
     }
 }
@@ -46,8 +46,8 @@ impl From<OpenOptions> for ProtFlags {
 impl From<OpenOptions> for MapFlags {
     fn from(value: OpenOptions) -> Self {
         match value {
-            OpenOptions::ReadOnly => MapFlags::MAP_PRIVATE,
-            OpenOptions::ReadWrite => MapFlags::MAP_SHARED,
+            OpenOptions::ReadOnly => Self::MAP_PRIVATE,
+            OpenOptions::ReadWrite => Self::MAP_SHARED,
         }
     }
 }
